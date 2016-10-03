@@ -2,9 +2,6 @@ package ru.mail.park.model;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Created by Solovyev on 17/09/16.
- */
 public class UserProfile {
     private String login;
     private String email;
@@ -48,10 +45,5 @@ public class UserProfile {
         this.password = password;
     }
 
-    /**
-     *
-     * Добавил сам
-     */
-    public String getEmail() { return  email;}
 }
 

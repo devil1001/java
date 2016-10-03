@@ -1,6 +1,8 @@
 package ru.mail.park.main;
 
 //импорты появятся автоматически, если вы выбираете класс из выпадающего списка или же после alt+enter
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,10 +14,6 @@ import ru.mail.park.services.SessionService;
 
 import javax.servlet.http.HttpSession;
 
-/**
- * Created by Solovyev on 06/09/16.
- */
-
 //Метка по которой спринг находит контроллер
 @RestController
 public class RegistrationController {
@@ -25,39 +23,29 @@ public class RegistrationController {
     private final SessionService sessionService;
 
 
-    /**
-     * Важное место. Мы не управляем жизненным циклом нашего класса. За нас это делает Spring. Аннотация говорит, что
-     * зависимости должны быть разрешены с помощью спрингового контекста{@see ApplicationContext}(реестра классов). В нем могут присутствовать,
-     * как наши сервисы(написанные нами), так и сервисы, предоставляемые спрингом.
-     * @param accountService - подставляет наш синглтон
-     */
     @Autowired
     public RegistrationController(AccountService accountService, SessionService sessionService) {
         this.accountService = accountService;
         this.sessionService = sessionService;
     }
 
-    /**
-     * Я ориентировался на {@see http://docs.technopark.apiary.io/} . В методе что-то сделано сильно не так, как в документации.
-     * Что именно? Варианты ответа принимаются в slack {@see https://technopark-mail.slack.com/messages}
-     * @param login - реквест параметр
-     * @param password - =
-     * @param email- =
-     * @return - Возвращаем вместо id логин. Но это пока нормально.
-     */
     @RequestMapping(path = "/api/user", method = RequestMethod.POST)
-    public ResponseEntity login(@RequestParam(name = "login") String login,
-                                @RequestParam(name = "password") String password,
-                                @RequestParam(name = "email") String email) {
-        //Инкапсулированная проверка на null и на пустоту. Выглядит гораздо более читаемо
+    public ResponseEntity login(@RequestBody RegistRequest body) {
+
+
+        final String login = body.getLogin();
+        final String password = body.getPassword();
+        final  String email = body.getEmail();
+
+
         if (StringUtils.isEmpty(login)
                 || StringUtils.isEmpty(password)
                 || StringUtils.isEmpty(email)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{}");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Одно из полей пусто}");
         }
         final UserProfile existingUser = accountService.getUser(login);
         if (existingUser != null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{}");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Такой пользователь существует}");
         }
 
         accountService.addUser(login, password, email);
@@ -68,14 +56,17 @@ public class RegistrationController {
         if (sessionService.checkExists(sessionId.getId())) {
             return ResponseEntity.ok(new SuccessResponse(sessionService.returnLogin(sessionId.getId())));
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{}");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{Вы не авторизованы!}");
         }
     }
 
     @RequestMapping(path = "/api/session", method = RequestMethod.DELETE)
     public ResponseEntity deleteSession(HttpSession sessionId) {
-        sessionService.deleteSession(sessionId.getId());
-        return ResponseEntity.ok().body("{}");
+        if(sessionService.checkExists(sessionId.getId())) {
+            sessionService.deleteSession(sessionId.getId());
+            return ResponseEntity.ok().body("{Вы больше не авторизованы!}");
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{Вы не были авторизованы!}");
     }
 
     @RequestMapping(path = "/api/session", method = RequestMethod.POST)
@@ -83,14 +74,14 @@ public class RegistrationController {
                                @RequestParam(name = "password") String password, HttpSession sessionId) {
         if(StringUtils.isEmpty(login)
                 || StringUtils.isEmpty(password) ) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{}");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Неправильный запрос}");
         }
         final UserProfile user = accountService.getUser(login);
         if(user.getPassword().equals(password)) {
             sessionService.addSession(sessionId.getId(),user.getLogin());
             return ResponseEntity.ok(new SuccessResponse(user.getLogin()));
         }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{}");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Возникла ошибка}");
     }
 
     // TODO: доделать вывод
@@ -100,12 +91,12 @@ public class RegistrationController {
         if (sessionService.checkExists(sessionId.getId())) {
             return ResponseEntity.ok().body(accountService.getUser(sessionService.returnLogin(sessionId.getId())));
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{}");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{Вы не авторизованы!}");
         }
     }
     // TODO: доделать вывод
 
-    @RequestMapping(path = "/api/user/{id}", method = RequestMethod.POST)
+    @RequestMapping(path = "/api/user/{id}", method = RequestMethod.PUT)
     public ResponseEntity changeInfo(@PathVariable("id") int id, HttpSession sessionId, @RequestParam(name = "login") String login,
                                      @RequestParam(name = "password") String password,
                                      @RequestParam(name = "email") String email) {
@@ -117,11 +108,11 @@ public class RegistrationController {
                     } else {
                         return ResponseEntity.status(HttpStatus.FORBIDDEN).body("{}"); }
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{}");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{Вы не авторизованы!}");
         }
     }
 
-    @RequestMapping(path = "/api/user/{id}", method = RequestMethod.POST)
+    @RequestMapping(path = "/api/user/{id}", method = RequestMethod.DELETE)
     public ResponseEntity deleteUser(@PathVariable("id") int id, HttpSession sessionId) {
         if (sessionService.checkExists(sessionId.getId())) {
             UserProfile temp = accountService.getUser(sessionService.returnLogin(sessionId.getId()));
@@ -131,10 +122,37 @@ public class RegistrationController {
             } else {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("{}"); }
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{}");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{Вы не авторизованы!}");
         }
     }
 
+
+    private  static final class RegistRequest {
+        private String login;
+        private String email;
+        private String password;
+
+        @JsonCreator
+        private RegistRequest(@JsonProperty("login") String login,
+                              @JsonProperty("email") String email,
+                              @JsonProperty("password") String password) {
+            this.login = login;
+            this.email = email;
+            this.password = password;
+        }
+
+        public String getLogin() {
+            return login;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+    }
 
     // объект класса будет автоматически преобразован в JSON при записи тела ответа
     private static final class SuccessResponse {
