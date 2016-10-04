@@ -1,6 +1,5 @@
 package ru.mail.park.main;
 
-//импорты появятся автоматически, если вы выбираете класс из выпадающего списка или же после alt+enter
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +13,6 @@ import ru.mail.park.services.SessionService;
 
 import javax.servlet.http.HttpSession;
 
-//Метка по которой спринг находит контроллер
 @RestController
 public class RegistrationController {
 
@@ -70,8 +68,9 @@ public class RegistrationController {
     }
 
     @RequestMapping(path = "/api/session", method = RequestMethod.POST)
-    public ResponseEntity auth(@RequestParam(name = "login") String login,
-                               @RequestParam(name = "password") String password, HttpSession sessionId) {
+    public ResponseEntity auth(@RequestBody AuthRequest body, HttpSession sessionId) {
+        final String login = body.getLogin();
+        final String password = body.getPassword();
         if(StringUtils.isEmpty(login)
                 || StringUtils.isEmpty(password) ) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Неправильный запрос}");
@@ -94,17 +93,18 @@ public class RegistrationController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("{Вы не авторизованы!}");
         }
     }
-    // TODO: доделать вывод
+
 
     @RequestMapping(path = "/api/user/{id}", method = RequestMethod.PUT)
-    public ResponseEntity changeInfo(@PathVariable("id") int id, HttpSession sessionId, @RequestParam(name = "login") String login,
-                                     @RequestParam(name = "password") String password,
-                                     @RequestParam(name = "email") String email) {
+    public ResponseEntity changeInfo(@PathVariable("id") int id, HttpSession sessionId, @RequestBody RegistRequest body) {
+        final String login = body.getLogin();
+        final String email = body.getEmail();
+        final String password = body.getPassword();
         if (sessionService.checkExists(sessionId.getId())) {
             UserProfile temp = accountService.getUser(sessionService.returnLogin(sessionId.getId()));
                     if (temp.getId() == id) {
                         accountService.changeUser(sessionService.returnLogin(sessionId.getId()), login, password, email);
-                        return ResponseEntity.ok().body("vse celikom");
+                        return ResponseEntity.ok().body(body);
                     } else {
                         return ResponseEntity.status(HttpStatus.FORBIDDEN).body("{}"); }
         } else {
@@ -154,7 +154,26 @@ public class RegistrationController {
         }
     }
 
-    // объект класса будет автоматически преобразован в JSON при записи тела ответа
+    private static final class AuthRequest {
+        private String login;
+        private String password;
+        @JsonCreator
+        private  AuthRequest(@JsonProperty("login") String login,
+                             @JsonProperty("password") String password){
+            this.login = login;
+            this.password = password;
+        }
+
+        public String getLogin() {
+            return login;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+    }
+
+
     private static final class SuccessResponse {
         private String login;
 
@@ -162,8 +181,6 @@ public class RegistrationController {
             this.login = login;
         }
 
-        //Функция необходима для преобразования см  https://en.wikipedia.org/wiki/Plain_Old_Java_Object
-        @SuppressWarnings("unused")
         public String getLogin() {
             return login;
         }

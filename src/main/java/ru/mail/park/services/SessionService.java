@@ -5,9 +5,6 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Created by devil on 02.10.16.
- */
 @Service
 public class SessionService {
     private Map<String, String> sessionToLogin = new HashMap<>();
