@@ -83,8 +83,6 @@ public class RegistrationController {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Возникла ошибка}");
     }
 
-    // TODO: доделать вывод
-
     @RequestMapping(path = "/api/user/{id}", method = RequestMethod.GET)
     public ResponseEntity getInfo(@PathVariable("id") int id, HttpSession sessionId) {
         if (sessionService.checkExists(sessionId.getId())) {
